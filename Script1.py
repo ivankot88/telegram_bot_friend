@@ -26,8 +26,8 @@ from telegramcalendar import create_calendar
 """
 
 Popen("Bot.py", shell=True)
-owm = OWM('ed0a22544e011704dca2f50f3399864f', language="ru")
-bot = TeleBot("446864098:AAGMu25VfSzGx-sHRQ-rGjJ81n_8JKQ5AQI")
+owm = OWM('HIDE', language="ru")
+bot = TeleBot("HIDE")
 
 words = Words()
 emoji = Emoji()
