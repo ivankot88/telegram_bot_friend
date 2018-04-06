@@ -12,8 +12,8 @@ from Python_file import Users, Events, Reminder
 
 database = sqlite3.connect("database.db")
 cursor = database.cursor()
-owm = OWM('ed0a22544e011704dca2f50f3399864f', language="ru")
-bot = TeleBot("446864098:AAGMu25VfSzGx-sHRQ-rGjJ81n_8JKQ5AQI")
+owm = OWM('HIDEN', language="ru")
+bot = TeleBot("HIDEN")
 
 
 def weather(id, latitude, longitude):
