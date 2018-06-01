@@ -108,11 +108,4 @@ class Words:
         self.curse_words = file2.readlines()
         self.polite_words = file3.readlines()
 
-# a = Events.select()
-# for i in range(10):
-#     try:
-#         a = Events.get(Events.id == i)
-#         a.id = 200
-#         a.save()
-#     except:
-#         pass
+
