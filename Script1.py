@@ -10,43 +10,24 @@ import peewee
 from telegramcalendar import create_calendar
 import pprint
 
-"""
-возможности:
--привет, пока, как дела
--матные, хорошие слова(репутация)
--поиск друга
--заполнение анкеты
--возможность оставить отзыв
--возможность напоминания
--запрос погоды
--напоминания о погоде каждый день
--база данных
--список увлечений
--база мероприятий, по категориям
-"""
-
-Popen("Bot.py", shell=True)
-owm = OWM('ed0a22544e011704dca2f50f3399864f', language="ru")
+Popen("Script2.py", shell=True)
 bot = TeleBot("446864098:AAGMu25VfSzGx-sHRQ-rGjJ81n_8JKQ5AQI")
 
-words = Words()
-emoji = Emoji()
-
 file = open('Категории мероприятий.txt')
-lines5 = file.readlines()
-keyboard = ReplyKeyboardRemove()
+lines = file.readlines()
 action = dict()
 for i in Users.select():  # инициализация action для всех сохранённых пользователей в DB
     action[i.id] = 'answer'
 database = peewee.SqliteDatabase("database.db")
 current_shown_dates = {}
 date = datetime.date(1, 1, 1)
+words = Words()
+emoji = Emoji()
+owm = OWM('ed0a22544e011704dca2f50f3399864f', language="ru")
+keyboard = ReplyKeyboardMarkup()
 
 
-def event(msg):
-    global date
-    global action
-    global keyboard
+def get_id():
     try:  # пересчёт номеров мероприятий, у каждого мероприятия есть свой id
         id = 0
         for i in Events.select():
@@ -55,134 +36,164 @@ def event(msg):
         id += 1
     except:
         id = 0
+    return id
+
+
+def event_invite(msg):
+    Event = Events.select().where((Events.creator == msg.chat.id) & (Events.status == 4)).get()
+    for i in Users.select():
+        if msg.chat.id != i.id and i.fun.find(Event.fun) + 1:
+            keyboard = InlineKeyboardMarkup()
+            keyboard.add(InlineKeyboardButton(text='Хочу пойти', callback_data='ev_invite' + str(Event.id)))
+            bot.send_message(i.id, text='Новое мероприятие!' + '\n' +
+                                        'Время: ' + str(Event.time) + '\n' +
+                                        'Дата: ' + str(Event.date) + '\n' + 'Описание:' + Event.text,
+                             reply_markup=keyboard)
+    Event.status = 0
+    Event.save()
+
+
+def event_create_step1(msg):
+    get_calendar(msg)
+    bot.send_message(msg.chat.id,
+                     text='Ваша категория добавлена, теперь напишите описание вашего данного мероприятия',
+                     reply_markup=keyboard)
+    Event = Events.create(
+        id=get_id(),
+        creator=msg.chat.id,
+        date=datetime.date(1, 1, 1),
+        time=datetime.time(0, 0, 0),
+        text='NULL',
+        count=-1,
+        fun=msg.text,
+        address='NULL',
+        members='',
+        status=1
+    )
+    Event.save()
+
+
+def event_create_step2(msg):
+    global date,action
+    try:
+        Event = Events.select().where((Events.count == -1) & (Events.creator == msg.chat.id)).get()
+        if Event.status == 1:
+            if date == datetime.date(1, 1, 1):
+                bot.send_message(msg.chat.id, text='Ты забыл ввести дату!')
+                return
+            Event.date = date
+            Event.text = msg.text
+            bot.send_message(msg.chat.id, text='Укажи время мероприятия... в формате HH:MM')
+            Event.status = 2
+            Event.save()
+        elif Event.status == 2:
+            Event.time = datetime.time(int(msg.text[0:2]), int(msg.text[3:5]))
+            bot.send_message(msg.chat.id, text='Укажите адрес мероприятия')
+            Event.status = 3
+            Event.save()
+        elif Event.status == 3:
+            Event.address = msg.text
+            Event.status = 4
+            Event.count = 0
+            Event.save()
+            action = 'answer'
+            date = datetime.datetime(1, 1, 1)
+            bot.send_message(msg.chat.id, text='Мероприетие успешно создано!')
+            event_invite(msg)
+    except:
+        bot.send_message(msg.chat.id, text='Проверь правильность ввода данных')
+
+
+def event_create(msg):
+    global action, date,keyboard
+    if msg.text + '\n' in lines:
+        event_create_step1(msg)
+    else:
+        event_create_step2(msg)
+
+
+def event_list(msg):
+    global keyboard
+    events = Events.select().where(Events.creator == msg.chat.id)
+    if len(events)>0:
+        bot.send_message(msg.chat.id,text='Ваши мероприятия:',reply_markup=keyboard)
+    count_admin = 1
+    for i in events:
+        event_information(msg, i, count_admin,1)
+        count_admin += 1
+    count_member = 1
+    for i in Events.select():
+        if i.members.find(str(msg.chat.id))!= -1:
+            if count_member == 1:
+                bot.send_message(msg.chat.id,text='Мероприятия, на которые вы идёте:')
+            event_information(msg,i,count_member,0)
+            count_member += 1
+    if count_admin == 1 and count_member == 1:
+        bot.send_message(msg.chat.id, text='У вас нет активных мероприятий')
+
+
+def event_information(msg, event, number,is_creator):
+    keyboard = InlineKeyboardMarkup()
+    text = str(number) + ') ' + event.text + '\n' + 'Дата: ' + str(event.date) + '\n'
+    keyboard.add(InlineKeyboardButton(text='Подробнее...', callback_data='info_' + str(event.id)))
+    if is_creator == True:
+        keyboard.add(InlineKeyboardButton(text='Удалить', callback_data='del_' + str(event.id)))
+    else:
+        keyboard.add(InlineKeyboardButton(text='Покинуть', callback_data='leave_' + str(event.id)))
+    bot.send_message(msg.chat.id, text=text, reply_markup=keyboard)
+
+
+def event(msg):
+    global date
+    global keyboard
+    global action
     if action[msg.chat.id] == 'event':
         if msg.text == 'Создать мероприятие':
             keyboard = ReplyKeyboardMarkup()
-            for i in lines5:
+            for i in lines:
                 keyboard.add(i)
             bot.send_message(msg.chat.id, text='Выберите категорию вашего мероприятия:', reply_markup=keyboard)
+            keyboard = ReplyKeyboardRemove()
             action[msg.chat.id] = 'event_create'
-            return
         elif msg.text == 'Посмотреть список моих мероприятий':
             keyboard = ReplyKeyboardRemove()
-            count = 1
-            for i in Events.select().where(Events.user_id == msg.chat.id):
-                text = str(count) + ') ' + i.text + '\n' + 'Дата: ' + str(i.date) + '\n' + 'Время: ' + str(
-                    i.time) + '\n'
-                bot.send_message(msg.chat.id, text=text, reply_markup=keyboard)
-                count += 1
-            event = Users.get(Users.id == msg.chat.id)
-            event = list(event.events.split())
-            if len(event) > 0:
-                bot.send_message(msg.chat.id, text='Мероприятия, на которые вы идёте:', reply_markup=keyboard)
-            for i in event:
-                print(i)
-                events = Events.get(Events.text == i)
-                keyboard = InlineKeyboardMarkup()
-                keyboard.add(InlineKeyboardButton(text='Отменить', callback_data='event_cancel' + events.text))
-                text = str(count) + ') ' + events.text + '\n' + 'Дата: ' + str(events.date) + '\n' + 'Время: ' + str(
-                    events.time) + '\n'
-                bot.send_message(msg.chat.id, text=text, reply_markup=keyboard)
-            if count == 1:
-                bot.send_message(msg.chat.id, text='У тебя нет мероприятий:(', reply_markup=keyboard)
+            event_list(msg)
             action[msg.chat.id] = 'answer'
-        elif msg.text == 'Удалить мероприятие':
-            keyboard = ReplyKeyboardMarkup()
-            try:
-                for i in Events.select().where(Events.user_id == msg.chat.id):
-                    keyboard.add(i.text)
-                bot.send_message(msg.chat.id, text='Выберете мероприятие, которое хотели бы удалить',
-                                 reply_markup=keyboard)
-                action[msg.chat.id] = 'event_delete'
-                return
-            except:
-                keyboard = ReplyKeyboardRemove()
-                bot.send_message(msg.chat.id, text='У тебя нет активных мероприятий', reply_markup=keyboard)
-                action[msg.chat.id] = 'answer'
-                return
     elif action[msg.chat.id] == 'event_create':
-        if msg.text + '\n' in lines5:
-            keyboard = ReplyKeyboardRemove()
-            get_calendar(msg)
-            bot.send_message(msg.chat.id,
-                             text='Ваша категория добавлена, теперь напишите время и название мероприятия',
-                             reply_markup=keyboard)
-            Event = Events.create(
-                id=id,
-                user_id=msg.chat.id,
-                date=datetime.date(1, 1, 1),
-                time=datetime.time(0, 0, 0),
-                text='NULL',
-                count=-1,
-                fun=msg.text
-            )
-            Event.save()
-            return
-        else:
-            try:
-                Event = Events.select().where((Events.count == -1)
-                                              & (Events.user_id == msg.chat.id)
-                                              & (Events.text == 'NULL')).get()
-                Event.time = datetime.time(int(msg.text[0:2]), int(msg.text[3:5]))
-                Event.date = date
-                Event.text = msg.text[6:]  # в будущем нужно исправить этот костыль
-                Event.count = 0
-                Event.save()
-                bot.send_message(msg.chat.id, text="Отлично! Сохранил твоё мероприятие!")
-                action[msg.chat.id] = 'answer'
-                for i in Users.select():
-                    if msg.chat.id != i.id and i.fun.find(Event.fun) + 1:
-                        keyboard = InlineKeyboardMarkup()
-                        keyboard.add(InlineKeyboardButton(text='Я пойду', callback_data='event_' + str(id - 1)))
-                        keyboard.add(InlineKeyboardButton(text='Я не пойду', callback_data='event_not'))
-                        bot.send_message(i.id, text='В ближайшее время намечается мероприятие:' + '\n' +
-                                                    'Время: ' + str(Event.time) + '\n' +
-                                                    'Дата: ' + str(Event.date) + '\n' + Event.text,
-                                         reply_markup=keyboard)
-                Event.save()
-                date = datetime.datetime(1, 1, 1)
-            except:
-                bot.send_message(msg.chat.id, text='Неправильный ввод данных или не выбрана дата! Повтори попытку')
-    elif action[msg.chat.id] == 'event_delete':
-        try:
-            Event = Events.select().where((Events.text == msg.text) & (Events.user_id == msg.chat.id)).get()
-            for i in Users.select():
-                if i.events.find(msg.text) and i.id != msg.chat.id:
-                    bot.send_message(i.id, text='К сожалению данное мероприятие отменяется:(' + '\n' + msg.text)
-                    i.events.replace(msg.text, '')
-                    i.save()
-            Event.delete_instance()
-            Event.save()
-            keyboard = ReplyKeyboardRemove()
-            bot.send_message(msg.chat.id, text='Удалил твоё мероприятие', reply_markup=keyboard)
-            action[msg.chat.id] = 'answer'
-        except:
-            bot.send_message(msg.chat.id, text='Такого варианта нет(')
+        event_create(msg)
+
+
+
+
+def fun_adding(msg):
+    keyboard = InlineKeyboardMarkup()
+    k = 0
+    for i in lines:
+        keyboard.add(InlineKeyboardButton(text=i, callback_data='fun_' + str(k)))
+        k += 1
+    keyboard.add(InlineKeyboardButton(text="Завершить", callback_data='fun_end'))
+    bot.send_message(msg.chat.id, text='Добавь развлечения в этот список!', reply_markup=keyboard)
+    action[msg.chat.id] = 'fun_add'
+
+
+def fun_removing(msg):
+    keyboard = InlineKeyboardMarkup()
+    k = 0
+    for i in lines:
+        keyboard.add(InlineKeyboardButton(text=i, callback_data='fun_' + str(k)))
+        k += 1
+    keyboard.add(InlineKeyboardButton(text="Завершить", callback_data='fun_end'))
+    bot.send_message(msg.chat.id, text='Удали развлечения из этого списка', reply_markup=keyboard)
+    action[msg.chat.id] = 'fun_remove'
 
 
 def fun(msg):
     global action
     if action[msg.chat.id] == 'fun':
         if msg.text == 'Добавить развлечение':
-            keyboard = InlineKeyboardMarkup()
-            k = 0
-            for i in lines5:
-                keyboard.add(InlineKeyboardButton(text=i, callback_data='fun_' + str(k)))
-                k += 1
-            keyboard.add(InlineKeyboardButton(text="Завершить", callback_data='fun_end'))
-            bot.send_message(msg.chat.id, text='Добавь развлечения в этот список!', reply_markup=keyboard)
-            action[msg.chat.id] = 'fun_add'
-            return
+            fun_adding(msg)
         elif msg.text == 'Удалить развлечение':
-            keyboard = InlineKeyboardMarkup()
-            k = 0
-            for i in lines5:
-                keyboard.add(InlineKeyboardButton(text=i, callback_data='fun_' + str(k)))
-                k += 1
-            keyboard.add(InlineKeyboardButton(text="Завершить", callback_data='fun_end'))
-            bot.send_message(msg.chat.id, text='Удали развлечения из этого списка', reply_markup=keyboard)
-            action[msg.chat.id] = 'fun_remove'
-            return
+            fun_removing(msg)
 
 
 def review(msg):
@@ -202,13 +213,11 @@ def review(msg):
 def find_friend(msg):
     user = Users.get(Users.id == msg.chat.id)
     hobbies = list(user.hobbies.split())
-    flag = True
     bot.send_message(msg.chat.id, text='Выполняю поиск...')
     for i in hobbies:  # список хобби
         for j in Users.select():  # список всех возможных
             hobbies_friend = list(j.hobbies.split())
             if i in hobbies_friend and j.id != user.id:
-                flag = False
                 bot.send_message(j.id,
                                  text='Я нашёл тебе друга!' + '\n' + 'Его зовут ' + user.first_name + ' ' + user.second_name
                                       + '\n' + 'Его репутация - ' + str(user.reputation)
@@ -218,13 +227,11 @@ def find_friend(msg):
                                       + '\n' + 'Его репутация - ' + str(j.reputation)
                                       + '\n' + 'Его телефон ' + j.telephone)
                 return
-    if flag:
-        bot.send_message(msg.chat.id, text='Друг не найден(')
+    bot.send_message(msg.chat.id, text='Друг не найден(')
 
 
 def memory(msg):
-    global action
-    global date
+    global action, date
     try:
         time = datetime.time(int(msg.text[0:2]), int(msg.text[3:5]))  # этот костыль тоже нужно исправить
         text = msg.text[6:]
@@ -268,7 +275,8 @@ def value_reg(msg):
             return
         elif action[msg.chat.id] == 'reg_hobbies':
             bot.send_message(msg.chat.id,
-                             text='Записал твой город! Теперь расскажи о своих хобби, напиши их через пробел в И.п.')
+                             text='Записал твой город! Теперь отметь хэштэги по своим интересам, чтобы другим людям '
+                                  'было проще найти тебя ')
             user.country = msg.text
             user.save()
             action[msg.chat.id] = 'reg_end'
@@ -302,8 +310,7 @@ def actions(msg):
 
 
 def weather_reg(msg):
-    global action
-    global keyboard
+    global action, keyboard
     user = Users.get(Users.id == msg.chat.id)
     if action[msg.chat.id] == 'weather_reg':
         if msg.text == 'Да' or msg.text == 'да':
@@ -311,13 +318,11 @@ def weather_reg(msg):
             user.save()
             bot.send_message(msg.chat.id, text='В какое время ты бы хотел получать уведомления?', reply_markup=keyboard)
             action[msg.chat.id] = 'weather_reg1'
-            return
         if msg.text == 'Нет' or msg.text == 'нет':
             user.weather = -1
             user.save()
             keyboard = ReplyKeyboardRemove()
             bot.send_message(msg.chat.id, text="Хорошо, как скажешь)", reply_markup=keyboard)
-            return
     else:
         try:
             user.weather_time = datetime.time(int(msg.text[0:2]), int(msg.text[3:5]))
@@ -325,10 +330,8 @@ def weather_reg(msg):
                              reply_markup=keyboard)
             action[msg.chat.id] = 'answer'
             user.save()
-            return
         except:
             bot.send_message(msg.chat.id, text='Не правильный ввод, повтори ещё раз!', reply_markup=keyboard)
-            return
 
 
 def weather(msg, latitude, longitude):
@@ -379,8 +382,7 @@ def hello(msg):
                         longitude=0.0,
                         weather=0,
                         weather_time=datetime.time(0, 0, 0),
-                        fun='',
-                        events=''
+                        fun=''
                         )
     User.save()
     keyboard = ReplyKeyboardMarkup()
@@ -398,17 +400,6 @@ def answer(msg):
     text = msg.text.lower()
     global keyboard, action
     user = Users.get(Users.id == msg.chat.id)
-    for j in words.polite_words:  # вежливые слова
-        j = j.lower()
-        if text.find(j[0:len(j) - 1]) != -1 and len(text) > 3:
-            user.reputation += 1
-            user.save()
-    for j in words.curse_words:
-        j = j.lower()  # матные слова
-        if text.find(j[0:len(j) - 1]) + 1 and len(text) >= 3:
-            user.reputation -= 1
-            user.save()
-            return "Не ругайся, пожалуйста, за матные слова будет снижена твоя репутация!"
     for i in words.welcome:
         i = i.lower()
         if i.find(text) != -1:
@@ -434,21 +425,21 @@ def answer(msg):
         keyboard = ReplyKeyboardRemove()
         return "Это просто прекрасно!"
     elif text.find("погода") + 1 or text.find("погоду") + 1 or text.find("погоде") + 1 or text.find("погодой") + 1:
-        recieve_weather(msg)
+        receive_weather(msg)
     elif text.find("отзыв") + 1:
         review(msg)
     elif text.find('репутация') + 1:
-        recieve_reputation(msg)
+        receive_reputation(msg)
     elif text.find('поменя') + 1 and text.find('время') + 1 and text.find('уведомлени') + 1:
-        recieve_change_weather(msg)
+        receive_change_weather(msg)
     elif text.find('найди') + 1 and text.find('друга'):
         find_friend(msg)
     elif text.find('напомин') + 1 or text.find('напомни') + 1:
-        recieve_memory(msg)
+        receive_memory(msg)
     elif text.find('развлечен') + 1:
-        recieve_fun(msg)
+        receive_fun(msg)
     elif text.find('мероприяти') + 1:
-        recieve_event(msg)
+        receive_event(msg)
     else:
         bot.send_message(msg.chat.id, text='Я тебя не понимаю')
 
@@ -483,18 +474,19 @@ def location(msg):
 def get_day(call):
     global date
     global action
+    global date
     chat_id = call.message.chat.id
     saved_date = current_shown_dates.get(chat_id)
     if (saved_date is not None):
         day = call.data[13:]
         date = datetime.date(int(saved_date[0]), int(saved_date[1]), int(day))
-        bot.answer_callback_query(call.id, text="Дата выбрана")
+        bot.answer_callback_query(call.message.chat.id, text="Дата выбрана")
         if action[call.message.chat.id] == 'memory':
             bot.send_message(call.message.chat.id,
                              text='Напиши время и само напоминание')
 
     else:
-        bot.answer_callback_query(call.id, text="Ошибка ввода даты")
+        bot.answer_callback_query(call.message.chat.id, text="Ошибка ввода даты")
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'next-month')
@@ -511,7 +503,7 @@ def next_month(call):
         current_shown_dates[chat_id] = date
         markup = create_calendar(year, month)
         bot.edit_message_text("Please, choose a date", call.from_user.id, call.message.message_id, reply_markup=markup)
-        bot.answer_callback_query(call.id, text="")
+        bot.answer_callback_query(call.message.chat.id, text="")
     else:
         pass
 
@@ -530,7 +522,7 @@ def previous_month(call):
         current_shown_dates[chat_id] = date
         markup = create_calendar(year, month)
         bot.edit_message_text("Please, choose a date", call.from_user.id, call.message.message_id, reply_markup=markup)
-        bot.answer_callback_query(call.id, text="")
+        bot.answer_callback_query(call.message.chat.id, text="")
     else:
         # Do something to inform of the error
         pass
@@ -538,67 +530,142 @@ def previous_month(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'ignore')
 def ignore(call):
-    bot.answer_callback_query(call.id, text="")
+    bot.answer_callback_query(call.message.chat.id, text="")
 
 
 @bot.callback_query_handler(func=lambda call: 'fun' in call.data)
 def fun_call(call):
     global action
     if call.data == 'fun_end':
-        keyboard = ReplyKeyboardRemove()
-        bot.send_message(call.message.chat.id, text='Спасибо, Внёс изменения !', reply_markup=keyboard)
-        action[call.message.chat.id] = 'answer'
+        fun_call_end(call)
         return
-    #############################################
-    fun = lines5[int(call.data[4:])]
+    fun = lines[int(call.data[4:])]
     user = Users.get(Users.id == call.message.chat.id)
-    #############################################
     if action[call.message.chat.id] == 'fun_add':
-        if not fun[:len(fun) - 1] in user.fun:
-            user.fun += ' ' + fun[:len(fun) - 1]
-            user.save()
-            bot.answer_callback_query(call.id, text="Развлечение добавлено ")
-        else:
-            bot.answer_callback_query(call.id, text="Развлечение уже добавлено")
-    elif action[call.message.chat.id] == 'fun_remove':
-        if fun[:len(fun) - 1] in user.fun:
-            user.fun = user.fun.replace(fun[:len(fun) - 1], '')
-            user.fun = user.fun.replace('  ', ' ')
-            user.save()
-            bot.answer_callback_query(call.id, text="Развлечение удалено")
-        else:
-            bot.answer_callback_query(call.id, text="Такого развлечения нет")
+        fun_call_add(call, fun, user)
+    if action[call.message.chat.id] == 'fun_remove':
+        fun_call_remove(call, fun, user)
 
 
-@bot.callback_query_handler(func=lambda call: 'event' in call.data)
+def fun_call_end(call):
+    keyboard = ReplyKeyboardRemove()
+    bot.send_message(call.message.chat.id, text='Спасибо, Внёс изменения !', reply_markup=keyboard)
+    action[call.message.chat.id] = 'answer'
+
+
+def fun_call_add(call, fun, user):
+    if not fun[:len(fun) - 1] in user.fun:
+        user.fun += ' ' + fun[:len(fun) - 1]
+        user.save()
+        bot.answer_callback_query(call.message.chat.id, text="Развлечение добавлено ")
+    else:
+        bot.answer_callback_query(call.message.chat.id, text="Развлечение уже добавлено")
+
+
+def fun_call_remove(call, fun, user):
+    if fun[:len(fun) - 1] in user.fun:
+        user.fun = user.fun.replace(fun[:len(fun) - 1], '')
+        user.fun = user.fun.replace('  ', ' ')
+        user.save()
+        bot.answer_callback_query(call.message.chat.id, text="Развлечение удалено")
+    else:
+        bot.answer_callback_query(call.message.chat.id, text="Такого развлечения нет")
+
+
+@bot.callback_query_handler(func=lambda call: 'ev' in call.data)
 def event_call(call):
-    if call.data == 'event_not':
-        bot.send_message(call.message.chat.id, text='Очень жаль:(')
-    elif call.data[0:12] == 'event_cancel':
+    if call.data[0:9] == 'ev_invite':
         User = Users.get(Users.id == call.message.chat.id)
-        User.events = User.events.replace(call.data[12:], '')
-        User.save()
-        bot.answer_callback_query(call.id, text="Мероприятие удалено")
-        Event = Events.get(Events.text == call.data[12:])
-        Event.count -= 1
-        bot.send_message(Event.user_id,
-                         text='К сожалению человек не сможет прийти на ваше мероприятие:' + '\n' + Event.text + '\n' +
-                              'Количество идущих на данный момент: ' + Event.count)
-        Event.save()
-    elif int(call.data[6:]) >= 0:
-        Event = Events.get(Events.id == int(call.data[6:]))
-        Event.count += 1
-        bot.send_message(Event.user_id,
-                         text='На ваше мероприятие записался человек! ' + 'Количество: ' + str(Event.count))
-        bot.send_message(call.message.chat.id, text='Отлично! Хорошо провести вам время!')
-        User = Users.get(Users.id == call.message.chat.id)
-        User.events += ' ' + Event.text
-        Event.save()
-        User.save()
+        Event = Events.get(Events.id == int(call.data[9:]))
+        if Event.members.find(str(call.message.chat.id)) == -1:
+            keyboard = InlineKeyboardMarkup()
+            keyboard.add(InlineKeyboardButton(text='Принять', callback_data='ev_accept' + str(Event.id) + ':' + str(
+                call.message.chat.id)))
+            keyboard.add(InlineKeyboardButton(text='Отклонить', callback_data='ev_reject' + str(Event.id) + ':' + str(
+                call.message.chat.id)))
+            bot.send_message(Event.creator,
+                             text='На ваше мероприятие запиисался человек!' + '\n' + User.first_name + ' ' + User.second_name + '\n' + 'Репутация:' + str(
+                                 User.reputation) +
+                                  '\n' + 'Телефон: ' + User.telephone, reply_markup=keyboard)
+            bot.answer_callback_query(call.message.chat.id, text="Ваша заявка отправлена")
+        else:
+            bot.answer_callback_query(call.message.chat.id, text="Вы уже подали заявку на это мероприятие")
+    elif call.data[0:9] == 'ev_accept':
+        event_id = int(call.data[9:call.data.find(':')])
+        user_id = int(call.data[call.data.find(':') + 1:])
+        Event = Events.get(Events.id == event_id)
+        if Event.members.find(str(user_id)) == -1:
+            bot.send_message(user_id,
+                             text='Ваша заявка одобрена!' + '\n' + 'Время: ' + str(Event.time) + '\n' + 'Дата: ' + str(
+                                 Event.date) + '\n' + 'Описание: ' + Event.text + '\n' + 'Адрес: ' + Event.address)
+            Event.count += 1
+            Event.members += str(user_id) + ' '
+            Event.save()
+            bot.send_message(Event.creator, text='Пользователю отправлена полная информация о мероприятии')
+        else:
+            bot.send_message(Event.creator, text='Этот пользователь уже приглашён на мероприятие')
 
+    elif call.data[0:9] == 'ev_reject':
+        event_id = int(call.data[9:call.data.find(':')])
+        creator = int(call.data[call.data.find(':') + 1:])
+        Event = Events.get(Events.id == event_id)
+        bot.send_message(creator, text='Ваша заявка на мероприятие: "' + Event.text + '" отклонена!')
+
+
+@bot.callback_query_handler(func=lambda call: 'info_' in call.data)
+def event_info(call):
+    event_id = call.data[5:]
+    event = Events.get(Events.id == event_id)
+    admin = Users.get(Users.id == event.creator)
+    text = 'Описание: ' + event.text + '\n' + 'Время: ' + str(event.time) + '\n' + 'Дата: ' + str(event.date)+ '\n' + 'Адрес: ' + event.address
+    text1 = 'Создатель: ' + '\n' + admin.first_name + ' ' + admin.second_name + '\n' + 'Телефон: ' + admin.telephone + '\n' + 'Репутация: ' + str(admin.reputation)
+    bot.send_message(call.message.chat.id,text = text)
+    bot.send_message(call.message.chat.id,text=text1)
+    text2 = 'Участники:' + '\n'
+    for members in event.members.split():
+        User = Users.get(Users.id == int(members))
+        text2+=User.first_name + ' ' + User.second_name + '\n' + 'Телефон: ' + User.telephone
+    if len(text2)>11:
+        bot.send_message(call.message.chat.id,text=text2)
+
+
+@bot.callback_query_handler(func=lambda call: 'del_' in call.data)
+def event_delete(call):
+    event_id = call.data[4:]
+    event = Events.get(Events.id == event_id)
+    for i in list(event.members.split()):
+        bot.send_message(int(i),text='К сожалению, создатель удалил мероприятие "'+event.text+ '"')
+    bot.send_message(event.creator,text='Мероприятие успешно удалено')
+    event.delete_instance()
+    event.save()
+
+
+@bot.callback_query_handler(func=lambda call: 'leave_' in call.data)
+def event_delete(call):
+    keyboard = InlineKeyboardMarkup()
+    event_id = call.data[6:]
+    user_id = str(call.message.chat.id)
+    try:
+        event = Events.get(Events.id == event_id)
+        if event.members.find(str(user_id)) != -1:
+            event.members = event.members.replace(str(user_id),' ')
+            event.members = event.members.replace('  ',' ')
+            event.count-=1
+            keyboard.add(InlineKeyboardButton(text='Подробнее...', callback_data='info_' + str(event.id)))
+            bot.send_message(int(event.creator),text='К сожалению, ваше мероприятие покинул человек!',reply_markup=keyboard)
+            event.save()
+        else:
+            bot.answer_callback_query(call.message.chat.id,text='Вы уже покинули это мероприятие')
+    except:
+        bot.send_message(call.message.chat.id,text='Мероприятия не существует')
+
+9
+@bot.callback_query_handler(func=lambda call: 'rep+' in call.data)
+def rep_positive(call):
+    pass
 
 @bot.message_handler(commands=['weather'])
-def recieve_weather(msg):
+def receive_weather(msg):
     user = Users.get(Users.id == msg.chat.id)
     if user.latitude == 0 or user.longitude == 0:
         keyboard = ReplyKeyboardMarkup()
@@ -612,24 +679,25 @@ def recieve_weather(msg):
 
 
 @bot.message_handler(commands=['events'])
-def recieve_event(msg):
+def receive_event(msg):
+    global keyboard, action,date
     keyboard = ReplyKeyboardMarkup()
     keyboard.add(
         KeyboardButton('Создать мероприятие'),
-        KeyboardButton('Посмотреть список моих мероприятий'),
-        KeyboardButton('Удалить мероприятие')
+        KeyboardButton('Посмотреть список моих мероприятий')
     )
     bot.send_message(msg.chat.id, text='Что вы хотите сделать?', reply_markup=keyboard)
-    action[msg.chat.id] = 'event'
+    action[msg.chat.id] = "event"
+    keyboard = ReplyKeyboardRemove()
 
 
 @bot.message_handler(commands=['find_friend'])
-def recieve_friend(msg):
+def receive_friend(msg):
     find_friend(msg)
 
 
 @bot.message_handler(commands=['fun'])
-def recieve_fun(msg):
+def receive_fun(msg):
     keyboard = ReplyKeyboardMarkup()
     keyboard.add(
         KeyboardButton('Добавить развлечение'),
@@ -641,7 +709,7 @@ def recieve_fun(msg):
 
 
 @bot.message_handler(commands=['change_weather'])
-def recieve_change_weather(msg):
+def receive_change_weather(msg):
     keyboard = ReplyKeyboardMarkup()
     keyboard.add(
         KeyboardButton('Да'),
@@ -651,19 +719,19 @@ def recieve_change_weather(msg):
 
 
 @bot.message_handler(commands=['memory'])
-def recieve_memory(msg):
+def receive_memory(msg):
     get_calendar(msg)
-
+    bot.send_message(msg.chat.id,text='Введи время и само напоминание')
     action[msg.chat.id] = 'memory'
 
 
 @bot.message_handler(commands=['review'])
-def recieve_review(msg):
+def receive_review(msg):
     review(msg)
 
 
 @bot.message_handler(commands=['reputation'])
-def recieve_reputation(msg):
+def receive_reputation(msg):
     user = Users.get(Users.id == msg.chat.id)
     if user.reputation < 2 and user.reputation > -2:
         bot.send_message(msg.chat.id, text='Твоя репутация: ' + str(user.reputation) + ' - нейтральная')
@@ -684,7 +752,7 @@ def start(msg):
 @bot.message_handler(commands=['help'])
 def help(msg):
     bot.send_message(msg.chat.id, text='/weather - Узнать погоду по вашему местоположению' + '\n' +
-                                       '/events - Назначить/Удалить/Узнать ваши мероприятия' + '\n' +
+                                       '/events - Создать/Удалить/Узнать ваши мероприятия' + '\n' +
                                        '/find_friend - Найти друга со схожими интересами' + '\n' +
                                        '/fun - Редактировать свои развлечения' + '\n' +
                                        '/change_weather - изменить время отправки погоды' + '\n' +
@@ -699,11 +767,12 @@ def cancel(msg):
     keyboard = ReplyKeyboardRemove()
     bot.send_message(msg.chat.id, text='Действие отменено', reply_markup=keyboard)
     action[msg.chat.id] = 'answer'
-    Event = Events.select().where((Events.count == -1)
-                                  & (Events.user_id == msg.chat.id)
-                                  & (Events.text == 'NULL')).get()
-    Event.delete_instance()
-    Event.save()
+    try:
+        Event = Events.select().where(Events.count == -1).get()
+        Event.delete_instance()
+        Event.save()
+    except:
+        pass
 
 
 @bot.message_handler(content_types=["text"])
