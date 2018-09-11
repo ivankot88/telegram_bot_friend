@@ -96,7 +96,7 @@ def event_create_step2(msg):
             Event.status = 4
             Event.count = 0
             Event.save()
-            action = 'answer'
+            action[msg.chat.id] = 'answer'
             date = datetime.datetime(1, 1, 1)
             bot.send_message(msg.chat.id, text='Мероприетие успешно создано!')
             event_invite(msg)
@@ -125,11 +125,12 @@ def event_list(msg):
     for i in Events.select():
         if i.members.find(str(msg.chat.id))!= -1:
             if count_member == 1:
-                bot.send_message(msg.chat.id,text='Мероприятия, на которые вы идёте:')
+                bot.send_message(msg.chat.id,text='Мероприятия, на которые вы идёте:', reply_markup=keyboard
+                                 )
             event_information(msg,i,count_member,0)
             count_member += 1
     if count_admin == 1 and count_member == 1:
-        bot.send_message(msg.chat.id, text='У вас нет активных мероприятий')
+        bot.send_message(msg.chat.id, text='У вас нет активных мероприятий',reply_markup=keyboard)
 
 
 def event_information(msg, event, number,is_creator):
@@ -161,8 +162,6 @@ def event(msg):
             action[msg.chat.id] = 'answer'
     elif action[msg.chat.id] == 'event_create':
         event_create(msg)
-
-
 
 
 def fun_adding(msg):
@@ -480,13 +479,13 @@ def get_day(call):
     if (saved_date is not None):
         day = call.data[13:]
         date = datetime.date(int(saved_date[0]), int(saved_date[1]), int(day))
-        bot.answer_callback_query(call.message.chat.id, text="Дата выбрана")
+        bot.answer_callback_query(call.id, text="Дата выбрана")
         if action[call.message.chat.id] == 'memory':
             bot.send_message(call.message.chat.id,
                              text='Напиши время и само напоминание')
 
     else:
-        bot.answer_callback_query(call.message.chat.id, text="Ошибка ввода даты")
+        bot.answer_callback_query(call.id, text="Ошибка ввода даты")
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'next-month')
@@ -503,7 +502,7 @@ def next_month(call):
         current_shown_dates[chat_id] = date
         markup = create_calendar(year, month)
         bot.edit_message_text("Please, choose a date", call.from_user.id, call.message.message_id, reply_markup=markup)
-        bot.answer_callback_query(call.message.chat.id, text="")
+        bot.answer_callback_query(call.id, text="")
     else:
         pass
 
@@ -522,7 +521,7 @@ def previous_month(call):
         current_shown_dates[chat_id] = date
         markup = create_calendar(year, month)
         bot.edit_message_text("Please, choose a date", call.from_user.id, call.message.message_id, reply_markup=markup)
-        bot.answer_callback_query(call.message.chat.id, text="")
+        bot.answer_callback_query(call.id, text="")
     else:
         # Do something to inform of the error
         pass
@@ -530,7 +529,7 @@ def previous_month(call):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'ignore')
 def ignore(call):
-    bot.answer_callback_query(call.message.chat.id, text="")
+    bot.answer_callback_query(call.id, text="")
 
 
 @bot.callback_query_handler(func=lambda call: 'fun' in call.data)
@@ -557,9 +556,9 @@ def fun_call_add(call, fun, user):
     if not fun[:len(fun) - 1] in user.fun:
         user.fun += ' ' + fun[:len(fun) - 1]
         user.save()
-        bot.answer_callback_query(call.message.chat.id, text="Развлечение добавлено ")
+        bot.answer_callback_query(call.id, text="Развлечение добавлено ")
     else:
-        bot.answer_callback_query(call.message.chat.id, text="Развлечение уже добавлено")
+        bot.answer_callback_query(call.id, text="Развлечение уже добавлено")
 
 
 def fun_call_remove(call, fun, user):
@@ -567,29 +566,32 @@ def fun_call_remove(call, fun, user):
         user.fun = user.fun.replace(fun[:len(fun) - 1], '')
         user.fun = user.fun.replace('  ', ' ')
         user.save()
-        bot.answer_callback_query(call.message.chat.id, text="Развлечение удалено")
+        bot.answer_callback_query(call.id, text="Развлечение удалено")
     else:
-        bot.answer_callback_query(call.message.chat.id, text="Такого развлечения нет")
+        bot.answer_callback_query(call.id, text="Такого развлечения нет")
 
 
 @bot.callback_query_handler(func=lambda call: 'ev' in call.data)
 def event_call(call):
     if call.data[0:9] == 'ev_invite':
-        User = Users.get(Users.id == call.message.chat.id)
-        Event = Events.get(Events.id == int(call.data[9:]))
-        if Event.members.find(str(call.message.chat.id)) == -1:
-            keyboard = InlineKeyboardMarkup()
-            keyboard.add(InlineKeyboardButton(text='Принять', callback_data='ev_accept' + str(Event.id) + ':' + str(
-                call.message.chat.id)))
-            keyboard.add(InlineKeyboardButton(text='Отклонить', callback_data='ev_reject' + str(Event.id) + ':' + str(
-                call.message.chat.id)))
-            bot.send_message(Event.creator,
-                             text='На ваше мероприятие запиисался человек!' + '\n' + User.first_name + ' ' + User.second_name + '\n' + 'Репутация:' + str(
-                                 User.reputation) +
-                                  '\n' + 'Телефон: ' + User.telephone, reply_markup=keyboard)
-            bot.answer_callback_query(call.message.chat.id, text="Ваша заявка отправлена")
-        else:
-            bot.answer_callback_query(call.message.chat.id, text="Вы уже подали заявку на это мероприятие")
+        try:
+            User = Users.get(Users.id == call.message.chat.id)
+            Event = Events.get(Events.id == int(call.data[9:]))
+            if Event.members.find(str(call.message.chat.id)) == -1:
+                keyboard = InlineKeyboardMarkup()
+                keyboard.add(InlineKeyboardButton(text='Принять', callback_data='ev_accept' + str(Event.id) + ':' + str(
+                    call.message.chat.id)))
+                keyboard.add(InlineKeyboardButton(text='Отклонить', callback_data='ev_reject' + str(Event.id) + ':' + str(
+                    call.message.chat.id)))
+                bot.send_message(Event.creator,
+                                 text='На ваше мероприятие запиисался человек!' + '\n' + User.first_name + ' ' + User.second_name + '\n' + 'Репутация:' + str(
+                                     User.reputation) +
+                                      '\n' + 'Телефон: ' + User.telephone, reply_markup=keyboard)
+                bot.send_message(call.message.chat.id, text="Ваша заявка отправлена")
+            else:
+                bot.answer_callback_query(call.id, text="Вы уже подали заявку на это мероприятие")
+        except:
+            bot.send_message(call.message.chat.id, text="К сожалению, мероприятия больше не существует")
     elif call.data[0:9] == 'ev_accept':
         event_id = int(call.data[9:call.data.find(':')])
         user_id = int(call.data[call.data.find(':') + 1:])
@@ -614,31 +616,36 @@ def event_call(call):
 
 @bot.callback_query_handler(func=lambda call: 'info_' in call.data)
 def event_info(call):
-    event_id = call.data[5:]
-    event = Events.get(Events.id == event_id)
-    admin = Users.get(Users.id == event.creator)
-    text = 'Описание: ' + event.text + '\n' + 'Время: ' + str(event.time) + '\n' + 'Дата: ' + str(event.date)+ '\n' + 'Адрес: ' + event.address
-    text1 = 'Создатель: ' + '\n' + admin.first_name + ' ' + admin.second_name + '\n' + 'Телефон: ' + admin.telephone + '\n' + 'Репутация: ' + str(admin.reputation)
-    bot.send_message(call.message.chat.id,text = text)
-    bot.send_message(call.message.chat.id,text=text1)
-    text2 = 'Участники:' + '\n'
-    for members in event.members.split():
-        User = Users.get(Users.id == int(members))
-        text2+=User.first_name + ' ' + User.second_name + '\n' + 'Телефон: ' + User.telephone
-    if len(text2)>11:
-        bot.send_message(call.message.chat.id,text=text2)
+    try:
+        event_id = call.data[5:]
+        event = Events.get(Events.id == event_id)
+        admin = Users.get(Users.id == event.creator)
+        text = 'Описание: ' + event.text + '\n' + 'Время: ' + str(event.time) + '\n' + 'Дата: ' + str(event.date)+ '\n' + 'Адрес: ' + event.address
+        text1 = 'Создатель: ' + '\n' + admin.first_name + ' ' + admin.second_name + '\n' + 'Телефон: ' + admin.telephone + '\n' + 'Репутация: ' + str(admin.reputation)
+        bot.send_message(call.message.chat.id,text = text)
+        bot.send_message(call.message.chat.id,text=text1)
+        text2 = 'Участники:' + '\n'
+        for members in event.members.split():
+            User = Users.get(Users.id == int(members))
+            text2+=User.first_name + ' ' + User.second_name + '\n' + 'Телефон: ' + User.telephone
+        if len(text2)>11:
+            bot.send_message(call.message.chat.id,text=text2)
+    except:
+        pass
 
 
 @bot.callback_query_handler(func=lambda call: 'del_' in call.data)
 def event_delete(call):
-    event_id = call.data[4:]
-    event = Events.get(Events.id == event_id)
-    for i in list(event.members.split()):
-        bot.send_message(int(i),text='К сожалению, создатель удалил мероприятие "'+event.text+ '"')
-    bot.send_message(event.creator,text='Мероприятие успешно удалено')
-    event.delete_instance()
-    event.save()
-
+    try:
+        event_id = call.data[4:]
+        event = Events.get(Events.id == event_id)
+        for i in list(event.members.split()):
+            bot.send_message(int(i),text='К сожалению создатель удалил мероприятие "'+event.text+ '"')
+        bot.send_message(event.creator,text='Мероприятие успешно удалено')
+        event.delete_instance()
+        event.save()
+    except:
+        pass
 
 @bot.callback_query_handler(func=lambda call: 'leave_' in call.data)
 def event_delete(call):
@@ -655,11 +662,11 @@ def event_delete(call):
             bot.send_message(int(event.creator),text='К сожалению, ваше мероприятие покинул человек!',reply_markup=keyboard)
             event.save()
         else:
-            bot.answer_callback_query(call.message.chat.id,text='Вы уже покинули это мероприятие')
+            bot.answer_callback_query(call.id,text='Вы уже покинули это мероприятие')
     except:
         bot.send_message(call.message.chat.id,text='Мероприятия не существует')
 
-9
+
 @bot.callback_query_handler(func=lambda call: 'rep+' in call.data)
 def rep_positive(call):
     pass
@@ -680,14 +687,14 @@ def receive_weather(msg):
 
 @bot.message_handler(commands=['events'])
 def receive_event(msg):
-    global keyboard, action,date
+    global keyboard, action, date
     keyboard = ReplyKeyboardMarkup()
     keyboard.add(
         KeyboardButton('Создать мероприятие'),
         KeyboardButton('Посмотреть список моих мероприятий')
     )
     bot.send_message(msg.chat.id, text='Что вы хотите сделать?', reply_markup=keyboard)
-    action[msg.chat.id] = "event"
+    action[msg.chat.id] = 'event'
     keyboard = ReplyKeyboardRemove()
 
 
