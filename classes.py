@@ -1,13 +1,9 @@
 import peewee
-import datetime
-from telebot import TeleBot
 from pyowm import OWM
 import datetime
-import random
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardMarkup, \
-    InlineKeyboardButton
-
+from telebot.types import ReplyKeyboardMarkup
 database = peewee.SqliteDatabase("database.db")
+
 
 class Users(peewee.Model):
     id = peewee.IntegerField()
@@ -48,6 +44,7 @@ class Events(peewee.Model):
     members = peewee.CharField()
     status = peewee.IntegerField()
     address = peewee.CharField()
+
     class Meta:
         database = database
 
@@ -55,28 +52,28 @@ class Events(peewee.Model):
 class Emoji:
     def __init__(self):
         self.pictures = {
-            'смех':'😂',
-            'палец':'👍' ,
-            'солнце':'☀',
-            'подмигивание':'😉',
-            'туча1':'🌤',
-            'туча2':'⛅',
-            'туча3':'🌥',
-            'дождь1':'🌦',
-            'туча5':'☁',
-            'дождь2':'🌧',
-            'гроза1':'⛈',
-            'гроза2':'🌩',
-            'снег':'🌨',
-            'грусть':'😞',
-            'улыбка':'😀',
-            'улыбка1':'😊',
-            'пальто':'🧥',
-            'перчатки':'🧤',
-            'зонт':'☂'
+            'смех': '😂',
+            'палец': '👍',
+            'солнце': '☀',
+            'подмигивание': '😉',
+            'туча1': '🌤',
+            'туча2': '⛅',
+            'туча3': '🌥',
+            'дождь1': '🌦',
+            'туча5': '☁',
+            'дождь2': '🌧',
+            'гроза1': '⛈',
+            'гроза2': '🌩',
+            'снег': '🌨',
+            'грусть': '😞',
+            'улыбка': '😀',
+            'улыбка1': '😊',
+            'пальто': '🧥',
+            'перчатки': '🧤',
+            'зонт': '☂'
         }
 
-    def weather1(text,self):
+    def weather1(self, text):
         if text == 'Clouds':
             return '☁'
         elif text == 'Clear':
@@ -99,3 +96,19 @@ class Words:
         file1 = open('farewell_words.txt')
         self.welcome = file.readlines()
         self.leave = file1.readlines()
+
+
+class Telebot:
+    def __init__(self):
+        self.action = dict()
+        for i in Users.select():  # инициализация action для всех сохранённых пользователей в DB
+            self.action[i.id] = 'answer'
+        self.file = open('event_categories.txt')
+        self.lines = self.file.readlines()
+        self.current_shown_dates = {}
+        self.date = datetime.date(1, 1, 1)
+        self.words = Words()
+        self.emoji = Emoji()
+        self.time = ''
+        self.owm = OWM('ed0a22544e011704dca2f50f3399864f', language="ru")
+        self.keyboard = ReplyKeyboardMarkup()
