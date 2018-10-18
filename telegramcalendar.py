@@ -1,5 +1,6 @@
 from telebot import types
 import calendar
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 def create_calendar(year,month):
     markup = types.InlineKeyboardMarkup()
@@ -28,5 +29,22 @@ def create_calendar(year,month):
     row.append(types.InlineKeyboardButton("<",callback_data="previous-month"))
     row.append(types.InlineKeyboardButton(" ",callback_data="ignore"))
     row.append(types.InlineKeyboardButton(">",callback_data="next-month"))
+    markup.row(*row)
+    return markup
+
+
+def number_keyboard():
+    markup = InlineKeyboardMarkup()
+    numbers = ["7", "8", "9", "4", "5", "6", "1", "2", "3"]
+    row = []
+    for number in numbers:
+        row.append(InlineKeyboardButton(number, callback_data="number_" + number))
+        if len(row) == 3:
+            markup.row(*row)
+            row = []
+    row = []
+    row.append(InlineKeyboardButton("<-", callback_data="number_back"))
+    row.append(InlineKeyboardButton("0", callback_data="number_0"))
+    row.append(InlineKeyboardButton("OK", callback_data="number_done"))
     markup.row(*row)
     return markup
