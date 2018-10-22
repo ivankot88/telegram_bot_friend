@@ -192,14 +192,19 @@ def find_friend(msg):
             hobbies_friend = list(j.hobbies.split())
             if i in hobbies_friend and j.id != user.id:
                 bot.send_message(j.id,
-                                 text='Я нашёл тебе друга!' + '\n' + 'Его зовут ' + user.first_name +
-                                      ' ' + user.second_name +
-                                      '\n' + 'Его репутация: ' + str(user.reputation) +
-                                      '\n' + 'Его телефон ' + user.telephone)
+                                 text='Я нашёл тебе друга!\nЕго зовут {} {}\n'
+                                      'Репутация: {}\n'
+                                      'Телефон: {}'.format(user.first_name,
+                                                           user.second_name,
+                                                           str(user.reputation),
+                                                           user.telephone))
                 bot.send_message(msg.chat.id,
-                                 text='Я нашёл тебе друга!' + '\n' + 'Его зовут ' + j.first_name + ' ' + j.second_name
-                                      + '\n' + 'Его репутация: ' + str(j.reputation)
-                                      + '\n' + 'Его телефон ' + j.telephone)
+                                 text='Я нашёл тебе друга!\nЕго зовут {} {}\n'
+                                      'Репутация: {}\n'
+                                      'Телефон: {}'.format(j.first_name,
+                                                           j.second_name,
+                                                           str(j.reputation),
+                                                           j.telephone))
                 return
     bot.send_message(msg.chat.id, text='Друг не найден(')
 
@@ -310,7 +315,7 @@ def weather_reg(msg):
 
 
 def weather(msg, latitude, longitude):
-    bot.send_message(msg.chat.id,text= telebot.weather_text(latitude,longitude))
+    bot.send_message(msg.chat.id, text=telebot.weather_text(latitude, longitude))
     user = Users.get(Users.id == msg.chat.id)
     if user.weather == 0:
         telebot.keyboard = ReplyKeyboardMarkup()
