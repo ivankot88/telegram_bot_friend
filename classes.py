@@ -2,6 +2,7 @@ import peewee
 from pyowm import OWM
 import datetime
 from telebot.types import ReplyKeyboardMarkup
+
 database = peewee.SqliteDatabase("database.db")
 
 
@@ -73,7 +74,7 @@ class Emoji:
             'зонт': '☂'
         }
 
-    def weather1(self, text):
+    def weather(self, text):
         if text == 'Clouds':
             return '☁'
         elif text == 'Clear':
@@ -98,7 +99,7 @@ class Words:
         self.leave = file1.readlines()
 
 
-class Telebot:
+class Bot_settings:
     def __init__(self):
         self.action = dict()
         for i in Users.select():  # инициализация action для всех сохранённых пользователей в DB
@@ -112,3 +113,24 @@ class Telebot:
         self.time = ''
         self.owm = OWM('ed0a22544e011704dca2f50f3399864f', language="ru")
         self.keyboard = ReplyKeyboardMarkup()
+
+    def weather_text(self, latitude, longitude):
+        obs = self.owm.weather_at_coords(latitude, longitude)
+        w = obs.get_weather()
+        wind = w.get_wind()
+        temp = w.get_temperature(unit='celsius')
+        text = 'Сегодня {} {} \nТемпература воздуха: {}°C\nВетер будет достигать {} м/с\n'.format(w.get_detailed_status(),
+                                                                                                self.emoji.weather(
+                                                                                                    w.get_status()),
+                                                                                                round(temp['temp']),
+                                                                                                round(wind['speed']))
+        if w.get_status() == 'Rain' and round(temp['temp']) < 0:
+            text+="Рекомендую тебе взять зонтик и одеться по теплее {}{}{}".format(self.emoji.pictures['зонт'],
+                                                                                   self.emoji.pictures['пальто'],
+                                                                                   self.emoji.pictures['перчатки'])
+        elif w.get_status() == 'Rain':
+            text+="Рекомендую тебе взять зонтик {}".format(self.emoji.pictures['зонт'])
+        elif round(temp['temp']) < 0:
+            text+="Рекомендую тебе одеться по теплее {}{}".format(self.emoji.pictures['пальто'],
+                                                                  self.emoji.pictures['перчатки'])
+        return text

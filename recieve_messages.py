@@ -4,14 +4,14 @@ from telebot.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemo
     InlineKeyboardButton
 from subprocess import Popen
 import datetime
-from classes import Users, Reminder, Events, Telebot
+from classes import Users, Reminder, Events, Bot_settings
 import peewee
 from telegramcalendar import create_calendar, number_keyboard
 
 Popen("send_messages.py", shell=True)
 bot = TeleBot("446864098:AAGMu25VfSzGx-sHRQ-rGjJ81n_8JKQ5AQI")
 database = peewee.SqliteDatabase("database.db")
-telebot = Telebot()
+telebot = Bot_settings()
 
 
 def get_id():
@@ -75,12 +75,15 @@ def event_create_step2(msg):
             chosen_event.status = 2
             chosen_event.save()
         elif chosen_event.status == 2:
-            chosen_event.time = datetime.time(int(msg.text[0:2]), int(msg.text[3:5]))
-            bot.send_message(msg.chat.id, text='Отправьте геолокацию с адресом мероприятия')
-            chosen_event.status = 3
-            chosen_event.save()
+            try:
+                chosen_event.time = datetime.time(int(msg.text[0:2]), int(msg.text[3:5]))
+                bot.send_message(msg.chat.id, text='Отправьте геолокацию с адресом мероприятия')
+                chosen_event.status = 3
+                chosen_event.save()
+            except ValueError:
+                bot.send_message(msg.chat.id, text='Проверь правильность ввода времени')
     except Events.DoesNotExist:
-        bot.send_message(msg.chat.id, text='Проверь правильность ввода данных')
+        bot.send_message(msg.chat.id, text='Произошла ошибка при создании мероприятия')
 
 
 def event_create(msg):
@@ -191,11 +194,11 @@ def find_friend(msg):
                 bot.send_message(j.id,
                                  text='Я нашёл тебе друга!' + '\n' + 'Его зовут ' + user.first_name +
                                       ' ' + user.second_name +
-                                      '\n' + 'Его репутация - ' + str(user.reputation) +
+                                      '\n' + 'Его репутация: ' + str(user.reputation) +
                                       '\n' + 'Его телефон ' + user.telephone)
                 bot.send_message(msg.chat.id,
                                  text='Я нашёл тебе друга!' + '\n' + 'Его зовут ' + j.first_name + ' ' + j.second_name
-                                      + '\n' + 'Его репутация - ' + str(j.reputation)
+                                      + '\n' + 'Его репутация: ' + str(j.reputation)
                                       + '\n' + 'Его телефон ' + j.telephone)
                 return
     bot.send_message(msg.chat.id, text='Друг не найден(')
@@ -215,7 +218,7 @@ def memory(msg):
         bot.send_message(msg.chat.id, text="Хорошо! Обязательно тебе напомню!")
         telebot.action[msg.chat.id] = 'answer'
         telebot.date = ''
-    except TypeError:
+    except ValueError:
         bot.send_message(msg.chat.id, text="Проверь правильность ввода данных! Не забудь указать дату!")
         return
 
@@ -286,6 +289,7 @@ def weather_reg(msg):
         if msg.text == 'Да' or msg.text == 'да':
             user.weather = 1
             user.save()
+            telebot.keyboard = ReplyKeyboardRemove()
             bot.send_message(msg.chat.id, text='В какое время ты бы хотел получать уведомления?',
                              reply_markup=telebot.keyboard)
             telebot.action[msg.chat.id] = 'weather_reg1'
@@ -297,7 +301,7 @@ def weather_reg(msg):
     else:
         try:
             user.weather_time = datetime.time(int(msg.text[0:2]), int(msg.text[3:5]))
-            bot.send_message(msg.chat.id, text='Хорошо, буду тебя предупреждать! Каждый день в ' + msg.text,
+            bot.send_message(msg.chat.id, text='Хорошо! Буду тебя предупреждать каждый день в ' + msg.text,
                              reply_markup=telebot.keyboard)
             telebot.action[msg.chat.id] = 'answer'
             user.save()
@@ -306,28 +310,7 @@ def weather_reg(msg):
 
 
 def weather(msg, latitude, longitude):
-    obs = telebot.owm.weather_at_coords(latitude, longitude)
-    w = obs.get_weather()
-    wind = w.get_wind()
-    temp = w.get_temperature(unit='celsius')
-    text = 'Сегодня ' + w.get_detailed_status()
-    text1 = 'Температура воздуха: ' + str(round(temp['temp'])) + '°C' + '\n'
-    text2 = 'Ветер будет достигать ' + str(round(wind['speed'])) + ' м/c' + '\n'
-    text = text + ' ' + telebot.emoji.weather1(w.get_status()) + '\n' + text1 + text2
-    telebot.keyboard = ReplyKeyboardRemove()
-    bot.send_message(msg.chat.id, text=text, reply_markup=telebot.keyboard)
-    if w.get_status() == 'Rain' and round(temp['temp']) < 0:
-        bot.send_message(msg.chat.id,
-                         text="Рекомендую тебе взять зонтик и одеться по теплее" + telebot.emoji.pictures['зонт'] +
-                              telebot.emoji.pictures['пальто'] +
-                              telebot.emoji.pictures['перчатки'])
-    elif w.get_status() == 'Rain':
-        bot.send_message(msg.chat.id, text="Рекомендую тебе взять зонтик" + telebot.emoji.pictures['зонт'])
-    elif round(temp['temp']) < 0:
-        bot.send_message(msg.chat.id,
-                         text="Рекомендую тебе одеться по теплее" + telebot.emoji.pictures['пальто'] +
-                              telebot.emoji.pictures[
-                                  'перчатки'])
+    bot.send_message(msg.chat.id,text= telebot.weather_text(latitude,longitude))
     user = Users.get(Users.id == msg.chat.id)
     if user.weather == 0:
         telebot.keyboard = ReplyKeyboardMarkup()
@@ -470,7 +453,7 @@ def location(msg):
         chosen_event.save()
         telebot.action[msg.chat.id] = 'answer'
         telebot.date = datetime.datetime(1, 1, 1)
-        bot.send_message(msg.chat.id, text='Мероприетие успешно создано!')
+        bot.send_message(msg.chat.id, text='Мероприятие успешно создано!')
         event_invite(msg)
 
 
@@ -484,7 +467,7 @@ def get_day(call):
         bot.answer_callback_query(call.id, text="Дата выбрана")
         if telebot.action[call.message.chat.id] == 'memory':
             bot.send_message(call.message.chat.id,
-                             text='Напиши время и само напоминание')
+                             text='Напиши время и само напоминание в формате HH:MM ')
 
     else:
         bot.answer_callback_query(call.id, text="Ошибка ввода даты")
@@ -798,10 +781,10 @@ def receive_reputation(msg):
         bot.send_message(msg.chat.id, text='Твоя репутация: ' + str(user.reputation) + ' (нейтральная)')
     elif int(user.reputation) > 2:
         bot.send_message(msg.chat.id, text='Твоя репутация: ' + str(
-            user.reputation) + ' (к тебе хорошо относятся твои друзья)')
+            user.reputation) + ' (к тебе плохо относятся твои друзья)')
     else:
         bot.send_message(msg.chat.id, text='Твоя репутация: ' + str(
-            user.reputation) + ' (к тебе плохо относятся твоя друзья)')
+            user.reputation) + ' (к тебе хорошо относятся твоя друзья)')
 
 
 @bot.message_handler(commands=['start'])
