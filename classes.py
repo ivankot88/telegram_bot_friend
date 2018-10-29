@@ -5,12 +5,17 @@ from telebot.types import ReplyKeyboardMarkup
 
 database = peewee.SqliteDatabase("database.db")
 
+"""
+
+Классы, отвечающие за поля в таблицах
+
+"""
+
 
 class Users(peewee.Model):
     id = peewee.IntegerField()
     telephone = peewee.CharField()
     hobbies = peewee.CharField()
-    country = peewee.CharField()
     first_name = peewee.CharField()
     second_name = peewee.CharField()
     reputation = peewee.IntegerField()
@@ -51,6 +56,12 @@ class Events(peewee.Model):
 
 
 class Emoji:
+    """
+
+    Класс Emoji создан для наглядного отображения символов,
+    которые меняются взависимости от погодных условий
+
+    """
     def __init__(self):
         self.pictures = {
             'смех': '😂',
@@ -100,9 +111,14 @@ class Words:
 
 
 class Bot_settings:
+    """
+
+    Класс для хранилища временных данных
+
+    """
     def __init__(self):
         self.action = dict()
-        for i in Users.select():  # инициализация action для всех сохранённых пользователей в DB
+        for i in Users.select():                     # инициализация action для всех сохранённых пользователей в DB
             self.action[i.id] = 'answer'
         self.file = open('event_categories.txt')
         self.lines = self.file.readlines()
@@ -115,22 +131,28 @@ class Bot_settings:
         self.keyboard = ReplyKeyboardMarkup()
 
     def weather_text(self, latitude, longitude):
+        """
+
+        Функция получает погоду через API и формирует текст для отправки сообщения
+
+        """
         obs = self.owm.weather_at_coords(latitude, longitude)
         w = obs.get_weather()
         wind = w.get_wind()
         temp = w.get_temperature(unit='celsius')
-        text = 'Сегодня {} {} \nТемпература воздуха: {}°C\nВетер будет достигать {} м/с\n'.format(w.get_detailed_status(),
-                                                                                                self.emoji.weather(
-                                                                                                    w.get_status()),
-                                                                                                round(temp['temp']),
-                                                                                                round(wind['speed']))
+        text = '☂⛅\nСегодня {} {} \nТемпература воздуха: {}°C\nВетер будет достигать {} м/с\n'.format(
+            w.get_detailed_status(),
+            self.emoji.weather(
+                w.get_status()),
+            round(temp['temp']),
+            round(wind['speed']))
         if w.get_status() == 'Rain' and round(temp['temp']) < 0:
-            text+="Рекомендую тебе взять зонтик и одеться по теплее {}{}{}".format(self.emoji.pictures['зонт'],
-                                                                                   self.emoji.pictures['пальто'],
-                                                                                   self.emoji.pictures['перчатки'])
+            text += "Рекомендую тебе взять зонтик и одеться по теплее {}{}{}".format(self.emoji.pictures['зонт'],
+                                                                                     self.emoji.pictures['пальто'],
+                                                                                     self.emoji.pictures['перчатки'])
         elif w.get_status() == 'Rain':
-            text+="Рекомендую тебе взять зонтик {}".format(self.emoji.pictures['зонт'])
+            text += "Рекомендую тебе взять зонтик {}".format(self.emoji.pictures['зонт'])
         elif round(temp['temp']) < 0:
-            text+="Рекомендую тебе одеться по теплее {}{}".format(self.emoji.pictures['пальто'],
-                                                                  self.emoji.pictures['перчатки'])
+            text += "Рекомендую тебе одеться по теплее {}{}".format(self.emoji.pictures['пальто'],
+                                                                    self.emoji.pictures['перчатки'])
         return text
