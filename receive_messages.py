@@ -1,15 +1,19 @@
-from telebot import TeleBot
+import datetime
 import random
+from subprocess import Popen
+
+import openpyxl
+import peewee
+import xlrd
+from telebot import TeleBot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardMarkup, \
     InlineKeyboardButton
-from subprocess import Popen
-import datetime
+
 from classes import Users, Reminder, Events, Bot_settings
-import peewee
 from telegramcalendar import create_calendar, number_keyboard
 
 Popen("send_messages.py", shell=True)
-bot = TeleBot("446864098:AAGMu25VfSzGx-sHRQ-rGjJ81n_8JKQ5AQI")
+bot = TeleBot("727398167:AAFa6E7ZjjieCbpqpJhe9CDu_OCazY3vnKs")
 database = peewee.SqliteDatabase("database.db")
 telebot = Bot_settings()
 
@@ -239,9 +243,9 @@ def fun(msg):
 
     """
     if telebot.action[msg.chat.id] == 'fun':
-        if msg.text == 'Добавить развлечение':
+        if msg.text == 'Добавить категорию':
             fun_adding(msg)
-        elif msg.text == 'Удалить развлечение':
+        elif msg.text == 'Удалить категорию':
             fun_removing(msg)
 
 
@@ -253,18 +257,26 @@ def review(msg):
 
     """
     if telebot.action[msg.chat.id] != "review":
-        bot.send_message(msg.chat.id, text="Напиши мне отзыв одним сообщением, я его передам разработчику!",
+        bot.send_message(msg.chat.id, text="Напиши мне отзыв в следующем сообщении и я его передам разработчику!",
                          reply_markup=telebot.keyboard)
         telebot.action[msg.chat.id] = "review"
     else:
         bot.send_message(msg.chat.id, text="Записал твой отзыв, спасибо!", reply_markup=telebot.keyboard)
-        file4 = open('reviews.txt', "a")
-        file4.write('{} {} {} {}\n'.format(msg.chat.id,msg.from_user.first_name,msg.from_user.last_name,msg.text))
-        file4.close()
+        rb = xlrd.open_workbook('review.xlsx')
+        sheet = rb.sheet_by_index(0)
+        wb = openpyxl.load_workbook('review.xlsx')
+        sheet1 = wb['Лист1']
+        sheet1.cell(row=sheet.nrows + 1, column=1).value = msg.chat.id
+        sheet1.cell(row=sheet.nrows + 1, column=2).value = msg.from_user.first_name
+        sheet1.cell(row=sheet.nrows + 1, column=3).value = msg.from_user.last_name
+        sheet1.cell(row=sheet.nrows + 1, column=4).value = msg.text
+        wb.save('review.xlsx')
         telebot.action[msg.chat.id] = 'answer'
 
 
 def find_friend(msg):
+    if not access(msg):
+        return
     """
 
     Функция извлекает из базы данных ключевые слова
@@ -283,14 +295,16 @@ def find_friend(msg):
                 bot.send_message(j.id,
                                  text='Я нашёл тебе друга!\n🙂 {} {}\n'
                                       '📊 Репутация: {}\n'
-                                      '📱 Телефон: {}'.format(user.first_name,
+                                      '📱 Телефон: {}'.format(
+                                                              user.first_name,
                                                               user.second_name,
                                                               str(user.reputation),
                                                               user.telephone))
                 bot.send_message(msg.chat.id,
                                  text='Я нашёл тебе друга!\n🙂 {} {}\n'
                                       '📊Репутация: {}\n'
-                                      '📱Телефон: {}'.format(j.first_name,
+                                      '📱Телефон: {}'.format(
+                                                             j.first_name,
                                                              j.second_name,
                                                              str(j.reputation),
                                                              j.telephone))
@@ -334,9 +348,8 @@ def value_reg(msg):
     """
     user = Users.get(Users.id == msg.chat.id)
     telebot.keyboard = ReplyKeyboardRemove()
-    if 'Да' == msg.text or telebot.action[msg.chat.id] == 'reg_country' or \
-            telebot.action[msg.chat.id] == 'reg_hobbies' \
-            or telebot.action[msg.chat.id] == 'reg_end':
+    if 'Я прочитал и ознакомился с правилами' == msg.text or telebot.action[msg.chat.id] == 'reg_hobbies' or \
+            telebot.action[msg.chat.id] == 'reg_end':
         if telebot.action[msg.chat.id] == 'reg_telephone':
             telebot.keyboard = ReplyKeyboardMarkup()
             bot.send_message(msg.chat.id, text="Отлично! Теперь тебе нужно внести данные, это не займёт много времени!",
@@ -358,9 +371,10 @@ def value_reg(msg):
             user.hobbies += msg.text
             user.save()
             fun_adding(msg)
-    elif msg.text == 'Нет':
+    elif msg.text == 'Я отказываюсь предоставлять доступ к моим данным':
         telebot.keyboard = ReplyKeyboardRemove()
-        bot.send_message(msg.chat.id, text='В таком случае вы не сможете учавствовать в мероприятиях и созздавать их.',
+        bot.send_message(msg.chat.id, text='В таком случае вы не будете иметь доступ к коммандам\n/events, '
+                                           '/find_friend, /fun',
                          reply_markup=telebot.keyboard)
 
 
@@ -453,7 +467,7 @@ def hello(msg):
                          text='Приветствую вас, {}!\nЕсли вам нужна помощь, используйте команду /help'.format(
                              user.first_name))
     except Users.DoesNotExist:
-        bot.send_message(msg.chat.id, text="Привет! Я бот Друг! Рад с тобой познакомиться!")
+        bot.send_message(msg.chat.id, text="Привет! Рад с тобой познакомиться!")
         first_name = msg.from_user.first_name
         last_name = msg.from_user.last_name
         if msg.from_user.first_name is None:
@@ -473,15 +487,21 @@ def hello(msg):
                                    fun=''
                                    )
         chosen_user.save()
-        telebot.keyboard = ReplyKeyboardMarkup()
-        telebot.keyboard.add(
-            KeyboardButton("Да"),
-            KeyboardButton("Нет"))
-        bot.send_message(msg.chat.id,
-                         text='Для того, чтобы тебе находить друзей, мне надо собирать личную информацию, '
-                              'ты разрешаешь?',
-                         reply_markup=telebot.keyboard)
-        telebot.action[msg.chat.id] = 'reg_telephone'
+        registration(msg)
+
+
+@bot.message_handler(commands=['reg'])
+def registration(msg):
+    telebot.keyboard = ReplyKeyboardMarkup()
+    telebot.keyboard.add(
+        KeyboardButton("Я прочитал и ознакомился с правилами"),
+        KeyboardButton("Я отказываюсь предоставлять доступ к моим данным"))
+    bot.send_message(msg.chat.id,
+                     text='📃Для доступа ко всем функциям бота '
+                          'тебе нужно ознакомиться с условиями конфиденциальности:\n'
+                          '🔸Бот будет использовать ваш номер телефона, никнейм, имя и фамилию.\n',
+                     reply_markup=telebot.keyboard)
+    telebot.action[msg.chat.id] = 'reg_telephone'
 
 
 def answer(msg):
@@ -533,13 +553,22 @@ def answer(msg):
         receive_fun(msg)
     elif text.find('мероприяти') + 1:
         receive_event(msg)
-    elif text.find('!#!')+1:                                        #функция используется только администратором
+    elif text.find('!#!') + 1:  # функция используется только администратором
         for i in Users.select():
             if i.id != msg.chat.id:
-                bot.send_message(i.id,text=msg.text[4:])
-            bot.send_message(msg.chat.id,text='Ваше сообщение отправлено всем пользователям!')
+                bot.send_message(i.id, text='БОГ: '+msg.text[4:])
+            bot.send_message(msg.chat.id, text='Ваше сообщение отправлено всем пользователям!')
     else:
         bot.send_message(msg.chat.id, text='Я тебя не понимаю')
+
+
+def access(msg):
+    chosen_user = Users.get(Users.id == msg.chat.id)
+    if chosen_user.telephone == 'NULL':
+        bot.send_message(msg.chat.id, text='У вас нет доступа к этой комманде', reply_markup=telebot.keyboard)
+        return False
+    else:
+        return True
 
 
 def get_calendar(msg):
@@ -550,11 +579,13 @@ def get_calendar(msg):
     markup = create_calendar(now.year, now.month)
     bot.send_message(msg.chat.id, "Пожалуйста, выберете дату", reply_markup=markup)
 
+
 """
 
 Данный блок кода принимает команды пользователя
 
 """
+
 
 @bot.message_handler(commands=['number'])
 def send_keyboard(msg):
@@ -590,6 +621,8 @@ def receive_weather(msg):
 
 @bot.message_handler(commands=['events'])
 def receive_event(msg):
+    if not access(msg):
+        return
     telebot.keyboard = ReplyKeyboardMarkup()
     telebot.keyboard.add(
         KeyboardButton('Создать мероприятие'),
@@ -607,6 +640,8 @@ def receive_friend(msg):
 
 @bot.message_handler(commands=['fun'])
 def receive_fun(msg):
+    if not access(msg):
+        return
     telebot.keyboard = ReplyKeyboardMarkup()
     telebot.keyboard.add(
         KeyboardButton('Добавить развлечение'),
@@ -662,14 +697,15 @@ def information(msg):
     bot.send_message(msg.chat.id, text='/weather - Узнать погоду по вашему местоположению\n' +
                                        '/events - Создать/Удалить/Узнать ваши мероприятия\n' +
                                        '/find_friend - Найти друга со схожими интересами\n' +
-                                       '/fun - Редактировать свои развлечения\n' +
-                                       '/change_weather - изменить время отправки погоды\n' +
-                                       '/reputation - посмотреть свою репутацию\n' +
-                                       '/help - посмотреть список комманд\n' +
-                                       '/start - начать работу\n' +
-                                       '/cancel - отменить последнее действие\n' +
-                                       '/review - тех.поддержка\n' +
-                                       '/memory - добавить напоминание\n')
+                                       '/reg - Пройти регистрацию\n'+
+                                       '/fun - Редактировать категории мероприятий\n' +
+                                       '/change_weather - Изменить время отправки погоды\n' +
+                                       '/reputation - Посмотреть свою репутацию\n' +
+                                       '/help - Посмотреть список комманд\n' +
+                                       '/start - Начать работу\n' +
+                                       '/cancel - Отменить последнее действие\n' +
+                                       '/review - Оставить отзыв\n' +
+                                       '/memory - Добавить напоминание\n')
 
 
 @bot.message_handler(commands=['cancel'])
@@ -682,7 +718,7 @@ def cancel(msg):
         chosen_event.delete_instance()
         chosen_event.save()
     except Events.DoesNotExist:
-        pass
+        return
 
 
 @bot.message_handler(content_types=["text"])
@@ -789,11 +825,13 @@ def previous_month(call):
 def ignore(call):
     bot.answer_callback_query(call.id, text="")
 
+
 """
 
 Данный блок принимает информацию о нажатых callback кнопках 
 
 """
+
 
 @bot.callback_query_handler(func=lambda call: 'fun' in call.data)
 def fun_call(call):
@@ -850,8 +888,11 @@ def event_call(call):
                 bot.send_message(chosen_event.creator,
                                  text='✉\nНа ваше мероприятие записался человек!\n🙂 {} {}\n'
                                       '📊 Репутация: {}\n📱 Телефон: {}'.format(
-                                     chosen_user.first_name, chosen_user.second_name, str(chosen_user.reputation),
-                                     chosen_user.telephone), reply_markup=telebot.keyboard)
+                                                                                chosen_user.first_name,
+                                                                                chosen_user.second_name,
+                                                                                str(chosen_user.reputation),
+                                                                                chosen_user.telephone),
+                                 reply_markup=telebot.keyboard)
                 bot.edit_message_text("Ваша заявка отправлена", call.from_user.id, call.message.message_id)
         except Users.DoesNotExist or Events.DoesNotExist:
             bot.send_message(call.message.chat.id, text="К сожалению, мероприятия больше не существует")
@@ -890,19 +931,24 @@ def event_info(call):
         telebot.keyboard = InlineKeyboardMarkup()
         url = InlineKeyboardButton(text="Адрес", url="https://www.google.ru/maps/place/" + chosen_event.address)
         telebot.keyboard.add(url)
-        text = '📄 Описание: {}\n⌚ Время: {}\n📅 Дата: '.format(chosen_event.text,
-                                                                str(chosen_event.time),
-                                                                str(chosen_event.date))
-        text1 = '🙂 Создатель: {}\n{}\n📱 Телефон: {}\n📊 Репутация: {}'.format(admin.first_name,
-                                                                                admin.second_name,
-                                                                                admin.telephone,
-                                                                                str(admin.reputation))
+        text = '📄 Описание: {}\n⌚ Время: {}\n📅 Дата: '.format(
+            chosen_event.text,
+            str(chosen_event.time),
+            str(chosen_event.date))
+        text1 = '🙂 Создатель: {}\n{}\n📱 Телефон: {}\n📊 Репутация: {}'.format(
+            admin.first_name,
+            admin.second_name,
+            admin.telephone,
+            str(admin.reputation))
         bot.send_message(call.message.chat.id, text=text, reply_markup=telebot.keyboard)
         bot.send_message(call.message.chat.id, text=text1)
         text2 = 'Участники:' + '\n'
         for members in chosen_event.members.split():
             chosen_user = Users.get(Users.id == int(members))
-            text2 += '🙂 '+chosen_user.first_name + ' ' + chosen_user.second_name + '\n' + '📱 Телефон: ' + chosen_user.telephone
+            text2 += '🙂 {} {}\n📱 Телефон: {}'.format(
+                chosen_user.first_name,
+                chosen_user.second_name,
+                chosen_user.telephone)
         if len(text2) > 11:
             bot.send_message(call.message.chat.id, text=text2)
     except Events.DoesNotExist or Users.DoesNotExist:
