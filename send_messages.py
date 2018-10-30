@@ -12,7 +12,7 @@ from classes import Users, Events, Reminder, Emoji, Bot_settings
 emoji = Emoji()
 database = sqlite3.connect("database.db")
 cursor = database.cursor()
-bot = TeleBot("446864098:AAGMu25VfSzGx-sHRQ-rGjJ81n_8JKQ5AQI")
+bot = TeleBot("727398167:AAFa6E7ZjjieCbpqpJhe9CDu_OCazY3vnKs")
 telebot = Bot_settings()
 
 
