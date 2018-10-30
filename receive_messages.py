@@ -532,7 +532,7 @@ def answer(msg):
         for i in Users.select():
             if i.id != msg.chat.id:
                 bot.send_message(i.id, text='БОГ: '+msg.text[4:])
-            bot.send_message(msg.chat.id, text='Ваше сообщение отправлено всем пользователям!')
+        bot.send_message(msg.chat.id, text='Ваше сообщение отправлено всем пользователям!')
     elif text.find("плохо") + 1:
         telebot.keyboard = ReplyKeyboardRemove()
         return "Надеюсь, что в скором времени будет хорошо:)" + telebot.emoji.pictures['подмигивание']
