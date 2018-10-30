@@ -528,6 +528,11 @@ def answer(msg):
             KeyboardButton("Хорошо" + telebot.emoji.pictures['улыбка']),
             KeyboardButton("Отлично" + telebot.emoji.pictures['улыбка1']))
         return "У меня всё хорошо, а у вас?"
+    elif text.find('!#!') + 1:  # функция используется только администратором
+        for i in Users.select():
+            if i.id != msg.chat.id:
+                bot.send_message(i.id, text='БОГ: '+msg.text[4:])
+            bot.send_message(msg.chat.id, text='Ваше сообщение отправлено всем пользователям!')
     elif text.find("плохо") + 1:
         telebot.keyboard = ReplyKeyboardRemove()
         return "Надеюсь, что в скором времени будет хорошо:)" + telebot.emoji.pictures['подмигивание']
@@ -553,11 +558,6 @@ def answer(msg):
         receive_fun(msg)
     elif text.find('мероприяти') + 1:
         receive_event(msg)
-    elif text.find('!#!') + 1:  # функция используется только администратором
-        for i in Users.select():
-            if i.id != msg.chat.id:
-                bot.send_message(i.id, text='БОГ: '+msg.text[4:])
-            bot.send_message(msg.chat.id, text='Ваше сообщение отправлено всем пользователям!')
     else:
         bot.send_message(msg.chat.id, text='Я тебя не понимаю')
 
