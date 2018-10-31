@@ -28,9 +28,9 @@ def get_user(chosen_member, other_member, is_creator):
     keyboard.add(InlineKeyboardButton(text='👎', callback_data='rep-_' + str(other_member)))
     chosen_user = Users.get(Users.id == int(other_member))
     if is_creator == 1:
-        text1 = '🔻' + chosen_user.first_name + ' ' + chosen_user.second_name
+        text1 = '🔻' + chosen_user.first_name + ' ' + chosen_user.last_name
     else:
-        text1 = chosen_user.first_name + ' ' + chosen_user.second_name
+        text1 = chosen_user.first_name + ' ' + chosen_user.last_name
     bot.send_message(int(chosen_member), text=text1)
     bot.send_message(int(chosen_member), text="*поставьте оценку*", reply_markup=keyboard)
 

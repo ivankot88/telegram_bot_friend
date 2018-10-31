@@ -297,7 +297,7 @@ def find_friend(msg):
                                       '📊 Репутация: {}\n'
                                       '📱 Телефон: {}'.format(
                                                               user.first_name,
-                                                              user.second_name,
+                                                              user.last_name,
                                                               str(user.reputation),
                                                               user.telephone))
                 bot.send_message(msg.chat.id,
@@ -305,7 +305,7 @@ def find_friend(msg):
                                       '📊Репутация: {}\n'
                                       '📱Телефон: {}'.format(
                                                              j.first_name,
-                                                             j.second_name,
+                                                             j.last_name,
                                                              str(j.reputation),
                                                              j.telephone))
                 return
@@ -478,7 +478,7 @@ def hello(msg):
                                    telephone='NULL',
                                    hobbies='',
                                    first_name=first_name,
-                                   second_name=last_name,
+                                   last_name=last_name,
                                    reputation=0,
                                    latitude=0.0,
                                    longitude=0.0,
@@ -697,7 +697,7 @@ def information(msg):
     bot.send_message(msg.chat.id, text='/weather - Узнать погоду по вашему местоположению\n' +
                                        '/events - Создать/Удалить/Узнать ваши мероприятия\n' +
                                        '/find_friend - Найти друга со схожими интересами\n' +
-                                       '/reg - Пройти регистрацию\n'+
+                                       '/reg - Пройти регистрацию\n' +
                                        '/fun - Редактировать категории мероприятий\n' +
                                        '/change_weather - Изменить время отправки погоды\n' +
                                        '/reputation - Посмотреть свою репутацию\n' +
@@ -889,7 +889,7 @@ def event_call(call):
                                  text='✉\nНа ваше мероприятие записался человек!\n🙂 {} {}\n'
                                       '📊 Репутация: {}\n📱 Телефон: {}'.format(
                                                                                 chosen_user.first_name,
-                                                                                chosen_user.second_name,
+                                                                                chosen_user.last_name,
                                                                                 str(chosen_user.reputation),
                                                                                 chosen_user.telephone),
                                  reply_markup=telebot.keyboard)
@@ -937,7 +937,7 @@ def event_info(call):
             str(chosen_event.date))
         text1 = '🙂 Создатель: {}\n{}\n📱 Телефон: {}\n📊 Репутация: {}'.format(
             admin.first_name,
-            admin.second_name,
+            admin.last_name,
             admin.telephone,
             str(admin.reputation))
         bot.send_message(call.message.chat.id, text=text, reply_markup=telebot.keyboard)
@@ -947,7 +947,7 @@ def event_info(call):
             chosen_user = Users.get(Users.id == int(members))
             text2 += '🙂 {} {}\n📱 Телефон: {}'.format(
                 chosen_user.first_name,
-                chosen_user.second_name,
+                chosen_user.last_name,
                 chosen_user.telephone)
         if len(text2) > 11:
             bot.send_message(call.message.chat.id, text=text2)

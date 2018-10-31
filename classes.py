@@ -17,7 +17,7 @@ class Users(peewee.Model):
     telephone = peewee.CharField()
     hobbies = peewee.CharField()
     first_name = peewee.CharField()
-    second_name = peewee.CharField()
+    last_name = peewee.CharField()
     reputation = peewee.IntegerField()
     latitude = peewee.FloatField()
     longitude = peewee.FloatField()
@@ -147,7 +147,7 @@ class Bot_settings:
             round(temp['temp']),
             round(wind['speed']))
         if w.get_status() == 'Rain' and round(temp['temp']) < 0:
-            text += "Рекомендую тебе взять зонтик и одеться потеплее {}{}{}".format(self.emoji.pictures['зонт'],
+            text += "Рекомендую тебе взять зонтик и одеться по теплее {}{}{}".format(self.emoji.pictures['зонт'],
                                                                                      self.emoji.pictures['пальто'],
                                                                                      self.emoji.pictures['перчатки'])
         elif w.get_status() == 'Rain':
