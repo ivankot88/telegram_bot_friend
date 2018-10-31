@@ -644,8 +644,8 @@ def receive_fun(msg):
         return
     telebot.keyboard = ReplyKeyboardMarkup()
     telebot.keyboard.add(
-        KeyboardButton('Добавить развлечение'),
-        KeyboardButton('Удалить развлечение')
+        KeyboardButton('Добавить категорию'),
+        KeyboardButton('Удалить категорию')
     )
     bot.send_message(msg.chat.id, text='Что вы хотите сделать?', reply_markup=telebot.keyboard)
     telebot.action[msg.chat.id] = 'fun'
