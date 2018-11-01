@@ -1,12 +1,11 @@
-from telebot import TeleBot
-import random
-from telebot import types
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardMarkup, \
-    InlineKeyboardButton
-from pyowm import OWM
+import datetime
 import sqlite3
 import time
-import datetime
+
+from telebot import TeleBot
+from telebot.types import InlineKeyboardMarkup, \
+    InlineKeyboardButton
+
 from classes import Users, Events, Reminder, Emoji, Bot_settings
 
 emoji = Emoji()
@@ -57,7 +56,7 @@ while True:
     try:
         event = Events.select().where((Events.time == datetime.time(time1.hour, time1.minute)) & (
                 Events.date == datetime.date(date.year, date.month, date.day)) & (Events.status == 0))
-        for i in event:     # i - выбранное мероприятие
+        for i in event:  # i - выбранное мероприятие
             cut = i.address.find(",")
             bot.send_message(int(i.creator),
                              text=telebot.weather_text(float(i.address[:cut]), float(i.address[cut + 1:])))
@@ -75,8 +74,8 @@ while True:
                 bot.send_message(int(member),
                                  text='✉\nМероприятие "{}" началось! '
                                       'Не забудьте поставить оценку приглашённым для рейтинга'.format(i.text))
-                get_user(member, i.creator, 1)                          # оценка админа
-                for other_member in list(i.members.split()):            # оценка других пользователей
+                get_user(member, i.creator, 1)  # оценка админа
+                for other_member in list(i.members.split()):  # оценка других пользователей
                     if other_member != member:
                         get_user(member, other_member, 0)
             for member in list(i.members.split()):

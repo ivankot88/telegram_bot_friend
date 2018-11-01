@@ -67,7 +67,7 @@ def event_create_step1(msg):
     """
     get_calendar(msg)
     bot.send_message(msg.chat.id,
-                     text='Ваша категория добавлена, теперь напишите описание вашего данного мероприятия',
+                     text='Ваша категория добавлена, теперь напишите краткое описание вашего мероприятия',
                      reply_markup=telebot.keyboard)
     chosen_event = Events.create(
         id=get_id(),
@@ -105,7 +105,7 @@ def event_create_step2(msg):
                 return
             chosen_event.date = telebot.date
             chosen_event.text = msg.text
-            bot.send_message(msg.chat.id, text='Укажите время мероприятия... в формате HH:MM')
+            bot.send_message(msg.chat.id, text='Укажите время мероприятия (формат HH:MM)')
             chosen_event.status = 2
             chosen_event.save()
         elif chosen_event.status == 2:
@@ -361,8 +361,8 @@ def value_reg(msg):
             telebot.action[msg.chat.id] = 'reg_hobbies'
         elif telebot.action[msg.chat.id] == 'reg_hobbies':
             bot.send_message(msg.chat.id,
-                             text='Записал твой номер. Теперь отметь хэштэги по своим интересам, чтобы другим людям '
-                                  'было проще найти тебя ', reply_markup=telebot.keyboard)
+                             text='Записал твой номер. Теперь отметь хэштэги по своим интересам, чтобы другим людям.'
+                                  'было проще найти тебя.', reply_markup=telebot.keyboard)
             user.country = msg.text
             user.save()
             telebot.action[msg.chat.id] = 'reg_end'
@@ -428,7 +428,7 @@ def weather_reg(msg):
                              reply_markup=telebot.keyboard)
             telebot.action[msg.chat.id] = 'answer'
             user.save()
-        except Users.DoesNotExist:
+        except Users.DoesNotExist or TypeError:
             bot.send_message(msg.chat.id, text='Не правильный ввод, повтори ещё раз!', reply_markup=telebot.keyboard)
 
 
@@ -931,7 +931,7 @@ def event_info(call):
         telebot.keyboard = InlineKeyboardMarkup()
         url = InlineKeyboardButton(text="Адрес", url="https://www.google.ru/maps/place/" + chosen_event.address)
         telebot.keyboard.add(url)
-        text = '📄 Описание: {}\n⌚ Время: {}\n📅 Дата: '.format(
+        text = '📄 Описание: {}\n⌚ Время: {}\n📅 Дата: {}'.format(
             chosen_event.text,
             str(chosen_event.time),
             str(chosen_event.date))
