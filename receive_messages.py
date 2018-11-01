@@ -863,7 +863,7 @@ def fun_call_add(call, chosen_fun, user):
 
 def fun_call_remove(call, chosen_fun, user):
     if chosen_fun[:len(chosen_fun) - 1] in user.fun:
-        user.fun = user.fun.replace(fun[:len(chosen_fun) - 1], '')
+        user.fun = user.fun.replace(chosen_fun[:len(chosen_fun) - 1], '')
         user.fun = user.fun.replace('  ', ' ')
         user.save()
         bot.answer_callback_query(call.id, text="Развлечение удалено")
