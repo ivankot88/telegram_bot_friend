@@ -911,7 +911,7 @@ def event_call(call):
             chosen_event.count += 1
             chosen_event.members += str(user_id) + ' '
             chosen_event.save()
-            bot.send_message(chosen_event.creator, text='Пользователю отправлена полная информация о мероприятии')
+            bot.send_message(chosen_event.creator, text='Пользователю отправлена полная информация о мероприятии...')
         else:
             bot.send_message(chosen_event.creator, text='Этот пользователь уже приглашён на мероприятие')
 
