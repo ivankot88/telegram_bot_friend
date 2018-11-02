@@ -361,7 +361,7 @@ def value_reg(msg):
             telebot.action[msg.chat.id] = 'reg_hobbies'
         elif telebot.action[msg.chat.id] == 'reg_hobbies':
             bot.send_message(msg.chat.id,
-                             text='Записал твой номер. Теперь отметь хэштэги по своим интересам, чтобы другим людям.'
+                             text='Записал твой номер. Теперь отметь хэштэги по своим интересам, чтобы другим людям '
                                   'было проще найти тебя.', reply_markup=telebot.keyboard)
             user.country = msg.text
             user.save()

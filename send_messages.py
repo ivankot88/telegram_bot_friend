@@ -6,16 +6,15 @@ from telebot import TeleBot
 from telebot.types import InlineKeyboardMarkup, \
     InlineKeyboardButton
 
-from classes import Users, Events, Reminder, Emoji, Bot_settings
+from classes import Users, Events, Reminder, Bot_settings
 
-emoji = Emoji()
 database = sqlite3.connect("database.db")
 cursor = database.cursor()
 bot = TeleBot("727398167:AAFa6E7ZjjieCbpqpJhe9CDu_OCazY3vnKs")
 telebot = Bot_settings()
 
 
-def get_user(chosen_member, other_member, is_creator):
+def get_user(chosen_member, members, is_creator):
     """
 
     Функция извлекает информацию о пользователе по его id
@@ -23,9 +22,9 @@ def get_user(chosen_member, other_member, is_creator):
 
     """
     keyboard = InlineKeyboardMarkup()
-    keyboard.add(InlineKeyboardButton(text='👍', callback_data='rep+_' + str(other_member)))
-    keyboard.add(InlineKeyboardButton(text='👎', callback_data='rep-_' + str(other_member)))
-    chosen_user = Users.get(Users.id == int(other_member))
+    keyboard.add(InlineKeyboardButton(text='👍', callback_data='rep+_' + str(members)))
+    keyboard.add(InlineKeyboardButton(text='👎', callback_data='rep-_' + str(members)))
+    chosen_user = Users.get(Users.id == int(members))
     if is_creator == 1:
         text1 = '🔻' + chosen_user.first_name + ' ' + chosen_user.last_name
     else:
